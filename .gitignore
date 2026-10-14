@@ -1,0 +1,10 @@
+node_modules/
+*.log
+session.json
+session.json.*
+.env
+.env.*
+.codex/
+.local/
+*.pem
+*.key

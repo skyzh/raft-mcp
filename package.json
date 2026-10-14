@@ -1,0 +1,27 @@
+{
+  "name": "raft-agent-control-mcp",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Local MCP adapter for Raft human-session agent configuration and lifecycle APIs",
+  "bin": {
+    "raft-agent-mcp": "src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node src/cli.mjs",
+    "test": "node --test",
+    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --check src/server.mjs && node --check src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "^3.25.76"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skyzh/raft-mcp.git"
+  }
+}

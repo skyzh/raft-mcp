@@ -1,0 +1,36 @@
+{
+  "protocolVersion": 2,
+  "runtimeId": "codex",
+  "schemaVersion": "synthetic-test-v1",
+  "dataSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string"
+      },
+      "envVars": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "reasoningEffort": {
+        "type": "string"
+      },
+      "fastMode": {
+        "type": "boolean"
+      }
+    }
+  },
+  "capabilities": {
+    "writeOnlyPointers": []
+  },
+  "values": {
+    "model": "fixture-model",
+    "envVars": {
+      "EXAMPLE_FLAG": "1"
+    },
+    "reasoningEffort": "high",
+    "fastMode": true
+  }
+}

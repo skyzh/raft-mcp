@@ -1,0 +1,54 @@
+{
+  "protocolVersion": 2,
+  "runtimeId": "claude",
+  "schemaVersion": "synthetic-test-v1",
+  "dataSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string"
+      },
+      "envVars": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "reasoningEffort": {
+        "type": "string"
+      },
+      "fastMode": {
+        "type": "boolean"
+      },
+      "provider": {
+        "type": "string"
+      },
+      "apiUrl": {
+        "type": "string"
+      },
+      "command": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string",
+        "writeOnly": true
+      }
+    }
+  },
+  "capabilities": {
+    "writeOnlyPointers": [
+      "/apiKey"
+    ]
+  },
+  "values": {
+    "model": "fixture-model",
+    "envVars": {
+      "EXAMPLE_FLAG": "1"
+    },
+    "reasoningEffort": "high",
+    "fastMode": true,
+    "provider": "custom",
+    "apiUrl": "https://gateway.example.test",
+    "command": "/usr/local/bin/claude"
+  }
+}

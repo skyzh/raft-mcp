@@ -1,0 +1,50 @@
+{
+  "protocolVersion": 2,
+  "runtimeId": "builtin",
+  "schemaVersion": "synthetic-test-v1",
+  "dataSchema": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string"
+      },
+      "envVars": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "providerId": {
+        "type": "string"
+      },
+      "baseUrl": {
+        "type": "string"
+      },
+      "supportsImageInput": {
+        "type": "boolean"
+      },
+      "loadLocalPlugins": {
+        "type": "boolean"
+      },
+      "apiKey": {
+        "type": "string",
+        "writeOnly": true
+      }
+    }
+  },
+  "capabilities": {
+    "writeOnlyPointers": [
+      "/apiKey"
+    ]
+  },
+  "values": {
+    "model": "fixture-model",
+    "envVars": {
+      "EXAMPLE_FLAG": "1"
+    },
+    "providerId": "openai-compatible",
+    "baseUrl": "https://gateway.example.test/v1",
+    "supportsImageInput": true,
+    "loadLocalPlugins": false
+  }
+}
