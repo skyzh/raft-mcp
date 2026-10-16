@@ -4,11 +4,12 @@ import { Controller } from './controller.mjs';
 import { SafeError } from './client.mjs';
 
 const agentId = z.string().uuid().describe('Agent ID returned by list_agents.');
+const accessPolicy = "Access policy: Only Cindy, Raft agent administrators, or human administrators may use this MCP. All other agents and users must not access or call its tools. This is a behavioral policy, not caller authentication; requests use the signed-in human's Raft permissions.";
 export function createServer(client) {
-  const server = new McpServer({ name: 'raft-agent-control', version: '0.2.0' }, { instructions: 'Use the explicitly configured server and list_agents to select the target. Login is a separate human browser-approved device flow. Config edits do not implicitly restart. Full workspace reset requires reset_agent(mode=full) followed by confirm_full_reset and an actual human elicitation response; never substitute tool arguments for confirmation. Accepted lifecycle requests are asynchronous, not proof of completion. Never blindly repeat uncertain writes.' });
+  const server = new McpServer({ name: 'raft-agent-control', version: '0.2.0' }, { instructions: accessPolicy + ' Use the explicitly configured server and list_agents to select the target. Login is a separate human browser-approved device flow. Config edits do not implicitly restart. Full workspace reset requires reset_agent(mode=full) followed by confirm_full_reset and an actual human elicitation response; never substitute tool arguments for confirmation. Accepted lifecycle requests are asynchronous, not proof of completion. Never blindly repeat uncertain writes.' });
   const controller = new Controller(client);
   const register = (name, description, inputSchema, readOnly, fn) => server.registerTool(name, {
-    description, inputSchema, annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly, openWorldHint: true },
+    description: `${accessPolicy} ${description}`, inputSchema, annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly, openWorldHint: true },
   }, async args => {
     try { const result = await fn(args); return { ...(result?.writeOutcome === 'unknown' ? { isError: true } : {}), content: [{ type: 'text', text: JSON.stringify(result) }] }; }
     catch (e) { return { isError: true, content: [{ type: 'text', text: JSON.stringify({ error: e instanceof SafeError ? e.code : 'internal_error', ...(e instanceof SafeError && e.status ? { httpStatus: e.status } : {}), ...(e instanceof SafeError && e.issues.length ? { issues: e.issues } : {}) }) }] }; }

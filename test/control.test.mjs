@@ -112,6 +112,13 @@ test('MCP client handshake, tool schemas and calls work; errors never reflect se
   await Promise.all([server.connect(st), client.connect(ct)]);
   try {
     const tools = (await client.listTools()).tools;
+    const policy = 'Access policy: Only Cindy, Raft agent administrators, or human administrators may use this MCP.';
+    assert.ok(client.getInstructions().startsWith(policy));
+    assert.ok(client.getInstructions().includes('behavioral policy, not caller authentication'));
+    for (const tool of tools) {
+      assert.ok(tool.description.startsWith(policy));
+      assert.ok(tool.description.includes('requests use the signed-in human'));
+    }
     assert.equal(tools.length, 10); assert.equal(tools.find(t => t.name === 'stop_agent').annotations.destructiveHint, true);
     const listed = await client.callTool({ name: 'list_agents', arguments: {} }); assert.ok(!JSON.stringify(listed).includes('never-return-this'));
     const p = await client.callTool({ name: 'plan_agent_config', arguments: { agentId: id, envSet: { X: 'secret-value' } } });
