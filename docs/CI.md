@@ -18,7 +18,7 @@ same workflow and ref.
 The steps install the committed lockfile with `npm ci --ignore-scripts`, run
 `npm run check`, and run `npm test`. The current 31 tests use synthetic fixtures,
 including MCP handshake and stdio discovery. They require no Raft credentials,
-live Raft server or real agent changes. CI does not run the login or serve commands.
+live Raft server or real agent changes. Tests may launch the local CLI/stdio server and exercise login against synthetic fixtures; they do not authenticate to a real Raft account, contact a production Raft server or change real agents.
 
 The template grants only `contents: read`, does not persist checkout credentials,
 uses the ordinary `pull_request` event, and disables automatic package-manager
