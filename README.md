@@ -199,6 +199,8 @@ npm test
 npm run check
 ```
 
+See the [CI and contributor guide](docs/CI.md) for the development Node.js requirements and the complete formatting, lint, syntax and fixture checks.
+
 Tests use synthetic HTTP responses and independently authored fixtures, including an SDK MCP handshake. They do not require real login or change live agents. Fixture success alone is not a production compatibility claim. Advance the stable checkout only to an independently reviewed, authorized commit; do not add automatic publishing or update hooks.
 
 ## License and upstream source

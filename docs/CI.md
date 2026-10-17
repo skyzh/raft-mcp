@@ -59,8 +59,9 @@ ESLint rules overlap with Prettier, and no recommended lint rules are disabled.
 Run `npm run format` to write formatting changes, then `npm run format:check`
 and `npm run lint` to verify them. CI uses only the check commands. Exact direct
 dev-dependency versions and the committed lockfile make installation reproducible.
-ESLint requires Node.js `^20.19.0 || ^22.13.0 || >=24`; the CI jobs resolve the latest
-22.x and 24.x releases. The application's runtime requirement remains `>=22`.
+ESLint requires Node.js `^20.19.0 || ^22.13.0 || >=24`. The CI jobs resolve Node.js
+22.x and 24.x and may use a matching cached patch. Record the actual Node.js
+version from each job. The application's runtime requirement remains `>=22`.
 
 ## Verify hosted results
 
