@@ -10,7 +10,10 @@
   "scripts": {
     "start": "node src/cli.mjs",
     "test": "node --test",
-    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --check src/server.mjs && node --check src/cli.mjs"
+    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --check src/server.mjs && node --check src/cli.mjs",
+    "format": "prettier --write \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs",
+    "format:check": "prettier --check \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs",
+    "lint": "eslint \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -23,5 +26,11 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/skyzh/raft-mcp.git"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10"
   }
 }
