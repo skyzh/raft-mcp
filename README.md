@@ -17,12 +17,12 @@ You need **Node.js 22+**, npm, a human Raft account and a client that supports l
 ### 1. Install a stable local copy
 
 ```sh
-git clone https://github.com/skyzh/raft-mcp.git "$HOME/Work/raft-mcp"
-cd "$HOME/Work/raft-mcp"
+git clone https://github.com/skyzh/raft-mcp.git
+cd raft-mcp
 npm ci --ignore-scripts
 ```
 
-If that checkout already exists, use it rather than cloning over it. While the repository is private, cloning requires your normal GitHub read access. Keep this copy at a stable path: your MCP client will launch it directly.
+Run the clone command from the directory where you want the project. If you already have a checkout, use it rather than cloning over it. Keep this copy at a stable path: your MCP client will launch it directly.
 
 ### 2. Sign in through your browser
 
@@ -30,7 +30,6 @@ In the same shell:
 
 ```sh
 export RAFT_MCP_API_URL=https://api.raft.build
-export RAFT_MCP_SESSION_FILE="$HOME/.config/raft-agent-mcp/session.json"
 node src/cli.mjs login
 node src/cli.mjs servers
 ```
@@ -56,13 +55,12 @@ tool_timeout_sec = 180
 [mcp_servers.raft_agent_control.env]
 RAFT_MCP_API_URL = "https://api.raft.build"
 RAFT_MCP_SERVER_ID = "YOUR-SERVER-UUID"
-RAFT_MCP_SESSION_FILE = "/absolute/path/to/home/.config/raft-agent-mcp/session.json"
 
 [mcp_servers.raft_agent_control.tools.confirm_full_reset]
 approval_mode = "prompt"
 ```
 
-Replace the checkout paths, server UUID and session-cache path. Use the same API origin and cache as the login command. **TOML does not expand `$HOME` or `~`** in these strings. If the launcher cannot find `node`, use the absolute path from `command -v node`. Keep tokens out of both the config and repository.
+Replace the checkout paths and server UUID. The login command and this configuration both use the default private session cache. If you customize `RAFT_MCP_SESSION_FILE`, set the same absolute path for login and in the MCP environment. Use the same API origin in both places. **TOML does not expand `$HOME` or `~`** in these strings. If the launcher cannot find `node`, use the absolute path from `command -v node`. Keep tokens out of both the config and repository.
 
 Run `codex mcp list`, then reload or restart Codex. Registration confirms configuration, not that full reset’s confirmation UI works. Keep its per-tool prompt and separate human confirmation; do not weaken unrelated global approval settings.
 
