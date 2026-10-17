@@ -1,4 +1,3 @@
-# INACTIVE TEMPLATE: keep outside .github/workflows while the repository is private.
 name: CI
 
 on:
@@ -37,6 +36,10 @@ jobs:
           package-manager-cache: false
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint JavaScript
+        run: npm run lint
       - name: Check JavaScript syntax
         run: npm run check
       - name: Run fixture and stdio tests
