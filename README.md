@@ -24,21 +24,27 @@ npm ci --ignore-scripts
 
 Run the clone command from the directory where you want the project. If you already have a checkout, use it rather than cloning over it. Keep this copy at a stable path: your MCP client will launch it directly.
 
-### 2. Sign in through your browser
+### 2. Sign in
 
-In the same shell:
+For an email-and-password Raft account, run:
 
 ```sh
 export RAFT_MCP_API_URL=https://api.raft.build
-node src/cli.mjs login
+node src/cli.mjs login password
 node src/cli.mjs servers
 ```
 
-Open the verification URL printed by `login` in your own browser, sign in to Raft and approve the displayed public code. The command waits for approval and saves a private session cache. You do not need to copy a password or token; the command never prints access/refresh tokens or the private device code.
+Open the printed loopback URL on the same computer and enter your existing Raft email and password. The temporary form is served only on `127.0.0.1`; it sends credentials to the configured Raft API's `/api/auth/login` endpoint over HTTPS. Passwords are not saved or printed. The resulting human session is saved in the private session cache. The listener closes after completion, failure or five minutes without sign-in. `login` defaults to `password`.
+
+For a provider already connected to your account, use `login google`, `login github` or `login apple`. These open an official provider authorization URL and use Raft's native OAuth endpoints with PKCE S256 and a loopback callback. Login does not link providers to accounts automatically. Tokens are never printed.
+
+The official web sign-in handoff currently rejects loopback callbacks with `return_uri_not_allowed`; its supported return URIs are fixed Raft app schemes. The local password form avoids copying credentials out of an existing browser session.
 
 `servers` lists the servers available to your account. Copy the UUID of the one you want to manage for the next step. Setup itself does not start agents or change their configuration.
 
-For self-hosted Raft, use the deployment’s API origin consistently in login and client configuration. It must support device login. HTTPS is required except for loopback development; credentials, query strings and path prefixes in the URL are rejected. A disabled or failed device-login flow has no OAuth fallback.
+Production rejects device sessions on agent-management routes with `403 device_session_not_allowed`. Run `login` to replace an old device session with a human session; repeating device login does not grant management access. Reconnect an already-running MCP after upgrading its source. Updated clients read the saved session on each request, including after a later login.
+
+For self-hosted Raft, use the deployment's API origin consistently in login and client configuration. It must support email/password login or native OAuth login, depending on the selected method. HTTPS is required except for loopback development; credentials, query strings and path prefixes in the URL are rejected. `login-device` retains the legacy device-code flow only for deployments that explicitly permit those sessions. No authentication flow falls back to another flow automatically.
 
 ### 3. Connect Codex
 

@@ -149,7 +149,7 @@ export class RaftClient {
     return data;
   }
   async access() {
-    if (!this.session) this.session = await this.store.load();
+    this.session = await this.store.load();
     if (!this.session) throw new SafeError('login_required');
     if (this.session.refreshBlocked) throw new SafeError('refresh_failed_login_required');
     if (this.session.expiresAt > this.now() + 60000) return this.session.accessToken;
