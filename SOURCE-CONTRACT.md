@@ -29,3 +29,15 @@ Implementation uses fresh runtime-form values rather than the legacy model/env m
 No upstream conditional-update/ETag contract was found in the inspected PATCH path. The adapter compares fresh form state before PATCH and discloses the remaining race. It does not claim database transactions span the client preflight and mutation. Server-native field error codes/pointers are preserved; free-form errors are never reflected.
 
 All adapter source, documentation and `test/fixtures/{codex,claude,builtin}.edit.json` are independently authored and MIT-licensed. Fixtures are small synthetic HTTP/form responses containing fictional values, not copies of upstream fixtures. No Raft implementation code or FSL-licensed fixture files are vendored. Upstream references document the inspected API contract, not a license change for Raft.
+
+## Human browser login contract
+
+Native OAuth references inspected at upstream `db5e399f017d584e49597e3a28757645d6807893`:
+
+- `packages/server/src/routes/auth.ts:430`, `:615`, `:841`, `:891`: POST `/api/auth/mobile/oauth/start` accepts provider, login mode, return URI and PKCE challenge; POST `/api/auth/mobile/oauth/complete` exchanges code + verifier and issues a human session.
+- `packages/server/src/services/socialAuthService.ts:237`, `:266`, `:499`, `:1004`: loopback return URI is `http://127.0.0.1:<port>/auth/done#state=<nonce>`, provider redirect preserves the state fragment, and provider authorization URLs use Google, GitHub or Apple.
+- Production app shell `https://app.raft.build/assets/app-shell-CMt5T-_e.js` (inspected 2026-10-30) uses these endpoints for native browser login; its embedded build revision is `a721bc88aadd1e6ba01105f50dc99bcb00ef00a3`.
+
+The reported production `403 device_session_not_allowed` is a session-class rejection, not evidence that the human account lost its administrator role. The public source snapshot predates that production guard; its exact server implementation and introduction date are not established here. Device-code login is no longer the default. Email/password sign-in uses POST `/api/auth/login` (`packages/server/src/routes/auth.ts:1244`), which issues a normal human session. This native sign-in to Raft is separate from third-party app OAuth identity scopes, which still cannot substitute for a human management session.
+
+The production `/api/auth/app-login/start` endpoint was checked with a loopback return URI on 2026-10-30 and returned HTTP 400 `return_uri_not_allowed`, matching the fixed custom-scheme allowlist in `packages/server/src/services/appLoginService.ts:24`. Password login therefore uses a temporary loopback form and the official HTTPS login API; it does not pretend to be an official hosted login page.

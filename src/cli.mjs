@@ -5,17 +5,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SessionStore, RaftClient, SafeError, originUrl } from './client.mjs';
 import { createServer } from './server.mjs';
+import { browserLogin } from './browser-login.mjs';
 import { uuid, Controller } from './controller.mjs';
 
 async function main() {
   const command = process.argv[2] ?? 'serve';
   if (command === '--help') {
     process.stderr.write(
-      'Usage: raft-agent-mcp [login|logout|servers|serve]\nSet RAFT_MCP_API_URL to an HTTPS API origin and RAFT_MCP_SERVER_ID to your server UUID.\nSession cache: RAFT_MCP_SESSION_FILE or ~/.config/raft-agent-mcp/session.json.\nLogin runs outside MCP; approve the displayed device code in your own browser.\n',
+      'Usage: raft-agent-mcp [login [password|google|github|apple]|login-device|logout|servers|serve]\nSet RAFT_MCP_API_URL to an HTTPS API origin and RAFT_MCP_SERVER_ID to your server UUID.\nSession cache: RAFT_MCP_SESSION_FILE or ~/.config/raft-agent-mcp/session.json.\nLogin uses a loopback password form by default, or browser OAuth with PKCE. Device sessions cannot manage agents on production.\n',
     );
     return;
   }
-  if (!['serve', 'login', 'logout', 'servers'].includes(command))
+  if (!['serve', 'login', 'login-device', 'logout', 'servers'].includes(command))
     throw new SafeError('unknown_command');
   const origin = originUrl(process.env.RAFT_MCP_API_URL ?? 'https://api.raft.build');
   const file =
@@ -31,6 +32,17 @@ async function main() {
     return;
   }
   if (command === 'login') {
+    await browserLogin(client, {
+      provider: process.argv[3] ?? 'password',
+      onReady: (url) =>
+        process.stderr.write(
+          `Open ${url}\nComplete Raft sign-in in your browser; session credentials will not be printed.\n`,
+        ),
+    });
+    process.stderr.write('Login complete. Session saved privately.\n');
+    return;
+  }
+  if (command === 'login-device') {
     const grant = await client.beginLogin();
     process.stderr.write(
       `Open ${grant.url}\nApprove code: ${grant.userCode}\nWaiting for your approval; session credentials will not be printed.\n`,

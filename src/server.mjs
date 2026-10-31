@@ -12,7 +12,7 @@ export function createServer(client) {
     {
       instructions:
         accessPolicy +
-        ' Use the explicitly configured server and list_agents to select the target. Login is a separate human browser-approved device flow. Config edits do not implicitly restart. Full workspace reset requires reset_agent(mode=full) followed by confirm_full_reset and an actual human elicitation response; never substitute tool arguments for confirmation. Accepted lifecycle requests are asynchronous, not proof of completion. Never blindly repeat uncertain writes.',
+        ' Use the explicitly configured server and list_agents to select the target. Login is separate: a local password form or a human browser OAuth flow with PKCE. Device sessions cannot manage agents on production. Config edits do not implicitly restart. Full workspace reset requires reset_agent(mode=full) followed by confirm_full_reset and an actual human elicitation response; never substitute tool arguments for confirmation. Accepted lifecycle requests are asynchronous, not proof of completion. Never blindly repeat uncertain writes.',
     },
   );
   const controller = new Controller(client);
@@ -44,6 +44,12 @@ export function createServer(client) {
                 type: 'text',
                 text: JSON.stringify({
                   error: e instanceof SafeError ? e.code : 'internal_error',
+                  ...(e instanceof SafeError && e.code === 'device_session_not_allowed'
+                    ? {
+                        recovery:
+                          'Run the standalone login command with password, google, github or apple to create a human session, then reconnect this MCP client. Device login cannot authorize agent management.',
+                      }
+                    : {}),
                   ...(e instanceof SafeError && e.status ? { httpStatus: e.status } : {}),
                   ...(e instanceof SafeError && e.issues.length ? { issues: e.issues } : {}),
                 }),

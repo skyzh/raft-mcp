@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/cli.mjs",
     "test": "node --test",
-    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --check src/server.mjs && node --check src/cli.mjs",
+    "check": "node --check src/client.mjs && node --check src/controller.mjs && node --check src/server.mjs && node --check src/cli.mjs && node --check src/browser-login.mjs",
     "format": "prettier --write \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs",
     "format:check": "prettier --check \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs",
     "lint": "eslint \"src/**/*.mjs\" \"test/**/*.mjs\" eslint.config.mjs"
