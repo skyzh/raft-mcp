@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { browserLogin } from '../src/browser-login.mjs';
-import { RaftClient } from '../src/client.mjs';
+import { RaftClient, SafeError } from '../src/client.mjs';
 
 function fixture() {
   const calls = [];
@@ -166,3 +166,85 @@ test('password login uses only the official login endpoint and preserves cache a
   );
   assert.equal(sessions[0].userId, 'human');
 });
+
+for (const [method, field, correctCode] of [
+  ['totp', 'code', '321987'],
+  ['backup_code', 'backupCode', 'synthetic-backup'],
+]) {
+  test(`password sign-in saves the session only after Raft verifies a ${method} answer`, async () => {
+    const challenge = 'a'.repeat(43);
+    const calls = [];
+    const saved = [];
+    const client = {
+      origin: 'https://raft.example',
+      raw: async (path, { body }) => {
+        calls.push({ path, body });
+        if (path === '/api/auth/login') {
+          return {
+            secondFactorRequired: true,
+            challenge,
+            expiresAt: new Date(Date.now() + 120000).toISOString(),
+            methods: [method, 'passkey', 'recovery'],
+            maskedEmail: 'f***@example.com',
+          };
+        }
+        if (body[field] !== correctCode) throw new SafeError('second_factor_code_invalid', 400);
+        return {
+          accessToken: 'synthetic-access',
+          refreshToken: 'synthetic-refresh',
+          user: { id: 'human' },
+        };
+      },
+      acceptSession: async (value) => saved.push(value),
+    };
+    await browserLogin(client, {
+      provider: 'password',
+      onReady: async (url) => {
+        const { origin, hash, hostname } = new URL(url);
+        assert.equal(hostname, '127.0.0.1');
+        const state = new URLSearchParams(hash.slice(1)).get('state');
+        const page = await fetch(url);
+        assert.match(page.headers.get('content-security-policy'), /form-action 'none'/);
+        assert.match(await page.text(), /Verify and sign in/);
+        const post = (path, body, from = origin) =>
+          fetch(origin + '/auth/' + path, {
+            method: 'POST',
+            headers: { Origin: from, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state, ...body }),
+          });
+        assert.equal((await post('verify', { method, code: correctCode })).status, 400);
+        const first = await post('password', {
+          email: 'fixture@example.com',
+          password: 'synthetic-password',
+        });
+        assert.equal(first.status, 202);
+        assert.deepEqual(await first.json(), { methods: [method] });
+        assert.equal(
+          (await post('verify', { method, code: correctCode }, 'https://other.example')).status,
+          403,
+        );
+        assert.equal(
+          (await post('verify', { state: 'wrong', method, code: correctCode })).status,
+          400,
+        );
+        assert.equal((await post('verify', { method: 'passkey', code: correctCode })).status, 400);
+        assert.equal((await post('verify', { method, code: 'wrong-code' })).status, 401);
+        assert.equal(saved.length, 0);
+        const verified = await post('verify', { method, code: correctCode, challenge: 'ignored' });
+        assert.equal(verified.status, 200);
+        assert.equal(await verified.text(), '');
+        assert.equal((await post('verify', { method, code: correctCode })).status, 400);
+      },
+    });
+    assert.deepEqual(calls, [
+      {
+        path: '/api/auth/login',
+        body: { email: 'fixture@example.com', password: 'synthetic-password' },
+      },
+      { path: '/api/auth/second-factor/verify', body: { challenge, [field]: 'wrong-code' } },
+      { path: '/api/auth/second-factor/verify', body: { challenge, [field]: correctCode } },
+    ]);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].userId, 'human');
+  });
+}

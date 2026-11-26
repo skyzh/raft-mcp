@@ -41,3 +41,12 @@ Native OAuth references inspected at upstream `db5e399f017d584e49597e3a28757645d
 The reported production `403 device_session_not_allowed` is a session-class rejection, not evidence that the human account lost its administrator role. The public source snapshot predates that production guard; its exact server implementation and introduction date are not established here. Device-code login is no longer the default. Email/password sign-in uses POST `/api/auth/login` (`packages/server/src/routes/auth.ts:1244`), which issues a normal human session. This native sign-in to Raft is separate from third-party app OAuth identity scopes, which still cannot substitute for a human management session.
 
 The production `/api/auth/app-login/start` endpoint was checked with a loopback return URI on 2026-10-30 and returned HTTP 400 `return_uri_not_allowed`, matching the fixed custom-scheme allowlist in `packages/server/src/services/appLoginService.ts:24`. Password login therefore uses a temporary loopback form and the official HTTPS login API; it does not pretend to be an official hosted login page.
+
+The password challenge and verifier are documented in the published
+[Raft auth routes at `da842d0`](https://github.com/botiverse/raft-source/blob/da842d0/packages/server/src/routes/auth.ts#L1528-L1595).
+The password endpoint can return `secondFactorRequired`, an opaque
+`challenge`, its expiry, and methods. The local process keeps the challenge in
+memory and submits it with `code` or `backupCode` to
+`POST /api/auth/second-factor/verify`. It writes the human session cache only
+after a session response. The browser receives only the offered method names,
+local status, and no authentication tokens.

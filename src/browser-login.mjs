@@ -17,23 +17,60 @@ body: JSON.stringify({code: params.get('code'), error: params.get('error'), stat
 
 const passwordPage = `<!doctype html><meta charset="utf-8"><title>Raft MCP sign in</title>
 <h1>Sign in to Raft MCP</h1>
-<p>Your email and password are sent to https://api.raft.build for sign-in. Your password is not saved.</p>
-<form id="login"><p><label>Email <input name="email" type="email" autocomplete="username" required></label></p>
+<p>This temporary local page sends your sign-in details to https://api.raft.build. Your password and verification code are not saved.</p>
+<form id="login" method="post"><p><label>Email <input name="email" type="email" autocomplete="username" required></label></p>
 <p><label>Password <input name="password" type="password" autocomplete="current-password" required></label></p>
-<button type="submit">Sign in</button></form><p id="status"></p><script>
+<button type="submit">Sign in</button></form>
+<form id="second-step" method="post" hidden>
+<p><label>Verification method <select name="method"></select></label></p>
+<p><label>Code <input name="code" type="password" autocomplete="one-time-code" required></label></p>
+<button type="submit">Verify and sign in</button></form>
+<p id="status" role="status"></p><script>
 const state = new URLSearchParams(location.hash.slice(1)).get('state');
 history.replaceState(null, '', '/auth/done');
-document.getElementById('login').addEventListener('submit', async (event) => {
- event.preventDefault(); const form = event.target; const button = form.querySelector('button');
- button.disabled = true; document.getElementById('status').textContent = 'Signing in…';
+const login = document.getElementById('login');
+const secondStep = document.getElementById('second-step');
+const status = document.getElementById('status');
+const labels = {totp: 'Authenticator app', backup_code: 'Backup code'};
+async function submit(form, endpoint, fields, secretInput) {
+ const button = form.querySelector('button');
+ button.disabled = true;
+ status.textContent = 'Signing in…';
  try {
-  const response = await fetch('/auth/password', {method: 'POST', headers: {'Content-Type': 'application/json'},
-   body: JSON.stringify({state, email: form.elements.email.value, password: form.elements.password.value})});
-  form.elements.password.value = '';
-  document.getElementById('status').textContent = response.ok ? 'Signed in. You can close this tab.' : 'Sign-in failed. Check your account details and try again.';
-  if (response.ok) form.remove();
- } catch { document.getElementById('status').textContent = 'Sign-in connection failed. Try again.'; }
- finally { form.elements.password && (form.elements.password.value = ''); button.disabled = false; }
+  const response = await fetch(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'},
+   body: JSON.stringify({state, ...fields})});
+  if (response.status === 202) {
+   const {methods} = await response.json();
+   secondStep.elements.method.replaceChildren(...methods.map(method => new Option(labels[method], method)));
+   login.hidden = true;
+   secondStep.hidden = false;
+   secondStep.elements.code.focus();
+   status.textContent = 'Enter the verification code.';
+  } else if (response.ok) {
+   login.remove();
+   secondStep.remove();
+   status.textContent = 'Signed in. You can close this tab.';
+  } else if (response.status === 410) {
+   secondStep.hidden = true;
+   login.hidden = false;
+   status.textContent = 'This verification expired. Sign in again.';
+  } else if (response.status === 422) {
+   status.textContent = 'This page supports authenticator and backup codes. Use Raft’s own sign-in for other methods.';
+  } else if (response.status === 429) {
+   status.textContent = 'Raft has limited further attempts. Wait before trying again.';
+  } else {
+   status.textContent = form === login ? 'Sign-in failed. Check your account details and try again.' : 'Verification failed. Check the code and try again.';
+  }
+ } catch { status.textContent = 'Sign-in connection failed. Try again.'; }
+ finally { secretInput.value = ''; button.disabled = false; }
+}
+login.addEventListener('submit', (event) => {
+ event.preventDefault();
+ submit(login, '/auth/password', {email: login.elements.email.value, password: login.elements.password.value}, login.elements.password);
+});
+secondStep.addEventListener('submit', (event) => {
+ event.preventDefault();
+ submit(secondStep, '/auth/verify', {method: secondStep.elements.method.value, code: secondStep.elements.code.value}, secondStep.elements.code);
 });
 </script>`;
 
@@ -61,6 +98,8 @@ export async function browserLogin(
     resolveCallback = resolve;
   });
   let consumed = false;
+  let pendingFactor = null;
+  let closed = false;
   let localOrigin;
   const server = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -79,15 +118,17 @@ export async function browserLogin(
           createHash('sha256')
             .update(loginPage.split('<script>')[1].split('</script>')[0])
             .digest('base64') +
-          "'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
       );
       res.end(loginPage);
       return;
     }
-    if (
-      req.method !== 'POST' ||
-      url.pathname !== (provider === 'password' ? '/auth/password' : '/auth/callback')
-    ) {
+    const verify = url.pathname === '/auth/verify';
+    const acceptedPath =
+      provider === 'password'
+        ? url.pathname === '/auth/password' || verify
+        : url.pathname === '/auth/callback';
+    if (req.method !== 'POST' || !acceptedPath) {
       res.writeHead(404).end();
       return;
     }
@@ -106,31 +147,79 @@ export async function browserLogin(
       }
       const data = JSON.parse(body);
       if (provider === 'password') {
-        if (
-          consumed ||
-          data.state !== state ||
-          typeof data.email !== 'string' ||
-          typeof data.password !== 'string' ||
-          !data.email ||
-          !data.password
-        ) {
+        if (consumed || data?.state !== state) {
+          res.writeHead(400).end();
+          return;
+        }
+        if (pendingFactor && pendingFactor.expiresAt <= Date.now()) {
+          pendingFactor = null;
+          res.writeHead(410).end();
+          return;
+        }
+        const code = typeof data.code === 'string' ? data.code.trim() : '';
+        const validInput = verify
+          ? pendingFactor?.methods.includes(data.method) && code
+          : !pendingFactor &&
+            typeof data.email === 'string' &&
+            data.email &&
+            typeof data.password === 'string' &&
+            data.password;
+        if (!validInput) {
           res.writeHead(400).end();
           return;
         }
         consumed = true;
+        let signedIn = false;
         try {
-          const session = await client.raw('/api/auth/login', {
-            method: 'POST',
-            body: { email: data.email, password: data.password },
-          });
-          data.password = '';
+          const session = await client.raw(
+            verify ? '/api/auth/second-factor/verify' : '/api/auth/login',
+            {
+              method: 'POST',
+              body: verify
+                ? {
+                    challenge: pendingFactor.challenge,
+                    [data.method === 'totp' ? 'code' : 'backupCode']: code,
+                  }
+                : { email: data.email, password: data.password },
+            },
+          );
+          if (closed) return;
+          if (session?.secondFactorRequired === true) {
+            if (verify) throw new SafeError('invalid_session_response');
+            const methods = ['totp', 'backup_code'].filter(
+              (method) => Array.isArray(session.methods) && session.methods.includes(method),
+            );
+            const expiresAt = Date.parse(session.expiresAt);
+            if (
+              !methods.length ||
+              !/^[A-Za-z0-9_-]{43}$/.test(session.challenge ?? '') ||
+              !Number.isFinite(expiresAt)
+            ) {
+              res.writeHead(422).end();
+              return;
+            }
+            pendingFactor = { challenge: session.challenge, expiresAt, methods };
+            res
+              .writeHead(202, { 'Content-Type': 'application/json' })
+              .end(JSON.stringify({ methods }));
+            return;
+          }
+          pendingFactor = null;
           await client.acceptSession({ ...session, userId: session.userId ?? session.user?.id });
+          signedIn = true;
           res.writeHead(200).end();
           resolveCallback({ authenticated: true });
-        } catch {
+        } catch (error) {
+          if (verify && error instanceof SafeError && error.code === 'challenge_expired') {
+            pendingFactor = null;
+            res.writeHead(410).end();
+          } else {
+            res.writeHead(error instanceof SafeError && error.status === 429 ? 429 : 401).end();
+          }
+        } finally {
           data.password = '';
-          consumed = false;
-          res.writeHead(401).end();
+          data.code = '';
+          if (!signedIn) consumed = false;
         }
         return;
       }
@@ -207,6 +296,8 @@ export async function browserLogin(
     });
     await client.acceptSession({ ...session, userId: session.userId ?? session.user?.id });
   } finally {
+    closed = true;
+    pendingFactor = null;
     clearTimeout(timer);
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

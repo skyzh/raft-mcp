@@ -44,6 +44,12 @@ The official web sign-in handoff currently rejects loopback callbacks with `retu
 
 Production rejects device sessions on agent-management routes with `403 device_session_not_allowed`. Run `login` to replace an old device session with a human session; repeating device login does not grant management access. Reconnect an already-running MCP after upgrading its source. Updated clients read the saved session on each request, including after a later login.
 
+On the temporary password page, complete Raft’s second step with an
+authenticator code or backup code offered for your account. The local process
+saves the new session only after Raft verifies the code. This flow supports
+typed codes. Passkeys and account recovery stay in Raft’s own sign-in. Open the
+temporary URL in a browser on the machine that launched the command.
+
 For self-hosted Raft, use the deployment's API origin consistently in login and client configuration. It must support email/password login or native OAuth login, depending on the selected method. HTTPS is required except for loopback development; credentials, query strings and path prefixes in the URL are rejected. `login-device` retains the legacy device-code flow only for deployments that explicitly permit those sessions. No authentication flow falls back to another flow automatically.
 
 ### 3. Connect Codex
