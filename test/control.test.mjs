@@ -237,7 +237,7 @@ test('MCP client handshake, tool schemas and calls work; errors never reflect se
       assert.ok(tool.description.startsWith(policy));
       assert.ok(tool.description.includes('requests use the signed-in human'));
     }
-    assert.equal(tools.length, 10);
+    assert.equal(tools.length, 11);
     assert.equal(tools.find((t) => t.name === 'stop_agent').annotations.destructiveHint, true);
     const listed = await client.callTool({ name: 'list_agents', arguments: {} });
     assert.ok(!JSON.stringify(listed).includes('never-return-this'));
@@ -357,7 +357,7 @@ test('real stdio process supports discovery and returns login_required without n
   const client = new Client({ name: 'stdio-fixture', version: '1' });
   try {
     await client.connect(transport);
-    assert.equal((await client.listTools()).tools.length, 10);
+    assert.equal((await client.listTools()).tools.length, 11);
     const r = await client.callTool({ name: 'get_agent', arguments: { agentId: id } });
     assert.equal(r.isError, true);
     assert.equal(JSON.parse(r.content[0].text).error, 'login_required');
@@ -365,4 +365,57 @@ test('real stdio process supports discovery and returns login_required without n
     await client.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('Activity Log tool returns only timestamped status rows and marks coverage unverified', async () => {
+  const requests = [];
+  const server = createServer({
+    async request(path, options) {
+      requests.push({ path, options });
+      return [
+        { timestamp: 100, entry: { kind: 'status', activity: 'working', detail: 'private input' } },
+        { timestamp: 110, entry: { kind: 'tool_start', toolInput: 'private command' } },
+        { timestamp: 120, entry: { kind: 'status', activity: 'online', hookBoundary: {} } },
+        { timestamp: 130, entry: { kind: 'status', activity: 'online', detailKind: 'idle' } },
+      ];
+    },
+  });
+  const client = new Client({ name: 'test', version: '1' });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  try {
+    const { tools } = await client.listTools();
+    assert.equal(
+      tools.find(({ name }) => name === 'get_agent_activity_log').annotations.readOnlyHint,
+      true,
+    );
+    const result = await client.callTool({
+      name: 'get_agent_activity_log',
+      arguments: { agentId: id, limit: 4 },
+    });
+    assert.deepEqual(requests, [
+      { path: '/api/agents/' + id + '/activity-log?limit=4', options: undefined },
+    ]);
+    assert.deepEqual(JSON.parse(result.content[0].text), {
+      statuses: [
+        { timestampMs: 100, activity: 'working', reportsIdle: false },
+        { timestampMs: 130, activity: 'online', reportsIdle: true },
+      ],
+      sourceRows: 4,
+      limitReached: true,
+      coverage: 'unverified',
+    });
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test('Activity Log rejects unknown status shape and invalid limits', async () => {
+  const controller = new Controller({
+    request: async () => [{ timestamp: 100, entry: { kind: 'status', activity: 'unexpected' } }],
+  });
+  await assert.rejects(controller.getAgentActivityLog(id), /invalid_activity_log_response/);
+  await assert.rejects(controller.getAgentActivityLog(id, 501), /invalid_activity_log_limit/);
 });

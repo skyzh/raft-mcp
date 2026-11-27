@@ -65,6 +65,33 @@ export class Controller {
   async getAgent(id) {
     return publicAgent(await this.client.request(this.agentPath(id)));
   }
+  async getAgentActivityLog(id, limit = 50) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500)
+      throw new SafeError('invalid_activity_log_limit');
+    const rows = await this.client.request(this.agentPath(id) + '/activity-log?limit=' + limit);
+    if (!Array.isArray(rows) || rows.length > limit)
+      throw new SafeError('invalid_activity_log_response');
+    const statuses = [];
+    for (const row of rows) {
+      if (typeof row?.entry?.kind !== 'string' || !Number.isSafeInteger(row.timestamp))
+        throw new SafeError('invalid_activity_log_response');
+      const entry = row.entry;
+      if (entry.kind !== 'status' || entry.hookBoundary != null) continue;
+      if (!['online', 'thinking', 'working', 'error', 'offline'].includes(entry.activity))
+        throw new SafeError('invalid_activity_log_response');
+      statuses.push({
+        timestampMs: row.timestamp,
+        activity: entry.activity,
+        reportsIdle: entry.activity === 'online' && entry.detailKind === 'idle',
+      });
+    }
+    return {
+      statuses,
+      sourceRows: rows.length,
+      limitReached: rows.length === limit,
+      coverage: 'unverified',
+    };
+  }
   async form(id) {
     const a = await this.client.request(this.agentPath(id));
     if (a.runtime === 'external') throw new SafeError('external_runtime_unsupported');

@@ -139,6 +139,7 @@ Plans live only in the MCP process’s memory, expire after five minutes and are
 | --- | --- | --- |
 | Find servers | `list_servers` | Servers visible to the signed-in human. |
 | Find or inspect agents | `list_agents`, `get_agent` | Identity, runtime, model, observed state and environment key names; no secret values. |
+| Read recent status history | `get_agent_activity_log` | Timestamp and status only, including explicitly typed Idle. The internal web-client route is unversioned. Retention and completeness are unknown. |
 | Start or stop | `start_agent`, `stop_agent` | Request acceptance plus freshly observed state when available. |
 | Restart, keeping session and workspace | `restart_agent` or `reset_agent(mode="restart")` | An asynchronous restart request. |
 | Clear the runtime session, keeping workspace | `reset_agent(mode="session")` | A session reset followed by a requested start. |
