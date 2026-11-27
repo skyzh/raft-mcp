@@ -50,3 +50,5 @@ memory and submits it with `code` or `backupCode` to
 `POST /api/auth/second-factor/verify`. It writes the human session cache only
 after a session response. The browser receives only the offered method names,
 local status, and no authentication tokens.
+
+Activity history is a separate internal web-client route inspected at upstream revision `da842d0911a58cd58ab7653d394b6f3fc12f6488`. `GET /api/agents/:id/activity-log?limit=N` checks server membership and agent activity inspection authority in `packages/server/src/routes/agents.ts:3823`. It returns recent durable trajectory rows, capped at 500. The MCP projects status rows only, discards external hook boundaries that do not report agent state, and preserves source ordering. Raw trajectory details and free text are not returned. The route is unversioned and supplies no completeness or retention guarantee. A full page may omit older entries, and a short page still cannot certify uninterrupted Idle.

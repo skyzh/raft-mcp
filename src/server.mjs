@@ -81,6 +81,13 @@ export function createServer(client) {
     (args) => controller.getAgent(args.agentId),
   );
   register(
+    'get_agent_activity_log',
+    'Read timestamped agent status rows using the signed-in human session and Raft’s internal web-client route. Raw trajectory details are omitted. Coverage is unverified and the result is not a continuous-Idle attestation.',
+    { agentId, limit: z.number().int().min(1).max(500).default(50) },
+    true,
+    ({ agentId, limit }) => controller.getAgentActivityLog(agentId, limit),
+  );
+  register(
     'plan_agent_config',
     'Prepare an expiring config change without writing. Preserve unrelated fields and env keys. No implicit restart: next_start is default. Explicit restart/session may reset a running Codex model session. Environment values stay private in the process.',
     {
